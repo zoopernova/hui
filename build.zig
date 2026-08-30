@@ -56,8 +56,8 @@ pub fn build(b: *std.Build) void {
     // backend's glyph rasterizer. Zig's translate-c only reads the declarations from
     // the header; the implementation is compiled as real C here (clang handles the
     // macros translate-c chokes on).
-    mod.addIncludePath(b.path("src/vendor"));
-    mod.addCSourceFile(.{ .file = b.path("src/vendor/stb_impl.c") });
+    mod.addIncludePath(b.path("src/render/vendor"));
+    mod.addCSourceFile(.{ .file = b.path("src/render/vendor/stb_impl.c") });
 
     // SDL3 default embedder (Linux/Wayland), linked as a system library (3.4.x).
     // ponytail: system SDL for bring-up; vendor via a zig package later if we need

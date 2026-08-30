@@ -2,69 +2,53 @@
 //! Public HUI surface: submodules are re-exported here so consumers reach them
 //! via `@import("HUI").<name>`.
 const std = @import("std");
-const Io = std.Io;
 
-/// Shared geometry/color primitives (the bottom layer). See `src/geometry.zig`.
-pub const geometry = @import("geometry.zig");
+/// Shared geometry/color primitives (the bottom layer). See `src/core/geometry.zig`.
+pub const geometry = @import("core/geometry.zig");
 
-/// Impeller C API bindings (Phase 0). See `src/impeller.zig`.
-pub const impeller = @import("impeller.zig");
+/// Impeller C API bindings (Phase 0). See `src/render/impeller/bindings.zig`.
+pub const impeller = @import("render/impeller/bindings.zig");
 
-/// Windowing/embedder contract (Phase 0). See `src/embedder.zig`.
-pub const embedder = @import("embedder.zig");
+/// Windowing/embedder contract (Phase 0). See `src/embedder/embedder.zig`.
+pub const embedder = @import("embedder/embedder.zig");
 
-/// Draw-list seam + geometry/color vocabulary (Phase 1). See `src/draw_list.zig`.
-pub const draw_list = @import("draw_list.zig");
+/// Draw-list seam + geometry/color vocabulary (Phase 1). See `src/core/draw_list.zig`.
+pub const draw_list = @import("core/draw_list.zig");
 
-/// Text-measurement seam (Phase 2). Impl in `src/backend/impeller_text.zig`.
-pub const text = @import("text.zig");
+/// Text-measurement seam (Phase 2). Impl in `src/render/impeller/text.zig`.
+pub const text = @import("core/text.zig");
 
-/// Input state + hit-testing (Phase 3). See `src/input.zig`.
-pub const input = @import("input.zig");
+/// Input state + hit-testing (Phase 3). See `src/input/input.zig`.
+pub const input = @import("input/input.zig");
 
-/// Keyboard-focus state, shared by both frontends (Phase 4). See `src/focus.zig`.
-pub const focus = @import("focus.zig");
+/// Keyboard-focus state, shared by both frontends (Phase 4). See `src/input/focus.zig`.
+pub const focus = @import("input/focus.zig");
 
-/// Clipboard seam (Phase 4). See `src/clipboard.zig`.
-pub const clipboard = @import("clipboard.zig");
+/// Clipboard seam (Phase 4). See `src/input/clipboard.zig`.
+pub const clipboard = @import("input/clipboard.zig");
 
-/// Layout engine — measure/arrange, own box model (Phase 3). See `src/layout.zig`.
-pub const layout = @import("layout.zig");
+/// Layout engine — measure/arrange, own box model (Phase 3). See `src/core/layout.zig`.
+pub const layout = @import("core/layout.zig");
 
-/// Paint — walk a laid-out node tree into a draw list (Phase 3). See `src/paint.zig`.
-pub const paint = @import("paint.zig");
+/// Paint — walk a laid-out node tree into a draw list (Phase 3). See `src/core/paint.zig`.
+pub const paint = @import("core/paint.zig");
 
-/// Immediate-mode frontend (Phase 3). See `src/immediate.zig`.
-pub const immediate = @import("immediate.zig");
+/// Immediate-mode frontend (Phase 3). See `src/ui/immediate.zig`.
+pub const immediate = @import("ui/immediate.zig");
 
-/// Retained-mode frontend (Phase 3). See `src/retained.zig`.
-pub const retained = @import("retained.zig");
+/// Retained-mode frontend (Phase 3). See `src/ui/retained.zig`.
+pub const retained = @import("ui/retained.zig");
 
-/// Widgets — checkbox, slider, text field, scroll (Phase 4). See `src/widgets.zig`.
-pub const widgets = @import("widgets.zig");
+/// Widgets — checkbox, slider, text field, scroll (Phase 4). See `src/ui/widgets.zig`.
+pub const widgets = @import("ui/widgets.zig");
 
-/// Impeller Vulkan backend (Phase 0/1). See `src/backend/impeller.zig`.
-pub const backend = @import("backend/impeller.zig");
+/// Impeller Vulkan backend (Phase 0/1). See `src/render/impeller/renderer.zig`.
+pub const backend = @import("render/impeller/renderer.zig");
 
 /// Software raster backend (Phase 4) — same draw list, CPU RGBA8 buffer, no GPU.
-pub const raster = @import("backend/raster.zig");
+pub const raster = @import("render/raster/renderer.zig");
 
 test {
     // Pull submodule tests into the module test run.
     std.testing.refAllDecls(@This());
-}
-
-/// This is a documentation comment to explain the `printAnotherMessage` function below.
-///
-/// Accepting an `Io.Writer` instance is a handy way to write reusable code.
-pub fn printAnotherMessage(writer: *Io.Writer) Io.Writer.Error!void {
-    try writer.print("Run `zig build test` to run the tests.\n", .{});
-}
-
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
-
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
 }

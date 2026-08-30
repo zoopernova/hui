@@ -5,6 +5,42 @@ upstream of a module imports it — verified from the source import graph. Two s
 points (render **backend**, OS **embedder**) sit behind seams so the core never knows
 which is in use.
 
+## Directory layout
+
+```
+src/
+├── root.zig            package entry — re-exports every submodule
+├── main.zig            demos (counter, settings panel)
+├── core/               vocabulary + engine (leaf-most Zig)
+│   ├── geometry.zig      Point · Rect · Size · Color
+│   ├── draw_list.zig     Command · DrawList  (render seam)
+│   ├── text.zig          Measurer · Metrics  (text-measure seam)
+│   ├── layout.zig        measure/arrange · Node · flex+grid
+│   └── paint.zig         Node tree → DrawList
+├── input/              input + interaction seams
+│   ├── input.zig         pointer+keyboard state, scancodes
+│   ├── focus.zig         keyboard focus + Tab cycling
+│   └── clipboard.zig     cut/copy/paste seam
+├── ui/                 frontends + widgets
+│   ├── immediate.zig     Imm  (rebuild-per-frame)
+│   ├── retained.zig      Tree (persistent + callbacks)
+│   └── widgets.zig       checkbox · slider · text field · scroll
+├── render/             render backends (swap point A)
+│   ├── impeller/         GPU: Vulkan via Google Impeller
+│   │   ├── bindings.zig     Impeller C ABI
+│   │   ├── renderer.zig     Renderer (consumes DrawList)
+│   │   ├── text.zig         Typography (Impeller text-seam impl)
+│   │   └── vk_wsi.zig       native-Wayland swapchain-extent shim
+│   ├── raster/          CPU: RGBA8 buffer, no GPU
+│   │   ├── renderer.zig     Raster (coverage-AA, clip, blit)
+│   │   ├── text.zig         Font (stb_truetype text-seam impl)
+│   │   └── stb.zig          stb_truetype declarations
+│   └── vendor/          stb_truetype.h + stb_impl.c (public domain)
+└── embedder/           OS window/input/surface (swap point B)
+    ├── embedder.zig      duck-typed contract + Default selection
+    └── sdl3.zig          SDL3 adapter
+```
+
 ## Layered module map
 
 ```
@@ -41,13 +77,13 @@ which is in use.
  └───────────────────────────────────────────────────────────────────────────────┘
 
  ┌─ SWAP POINT A — RENDER BACKEND (consumes DrawList, implements text seam) ───────┐
- │  backend/impeller.zig  Renderer   GPU: Vulkan via Google Impeller               │
- │    ├ backend/impeller_text.zig    Typography (Impeller impl of text.Measurer)   │
- │    ├ backend/vk_wsi.zig           native-Wayland swapchain-extent shim          │
- │    └ impeller.zig                 Impeller C ABI bindings (@cImport)            │
- │  backend/raster.zig    Raster     CPU: RGBA8 buffer, coverage-AA, no GPU        │
- │    ├ backend/raster_text.zig      Font (stb impl of text.Measurer)             │
- │    ├ backend/stb.zig              stb_truetype decls (@cImport)                │
+ │  render/impeller/renderer.zig  Renderer   GPU: Vulkan via Google Impeller               │
+ │    ├ render/impeller/text.zig    Typography (Impeller impl of text.Measurer)   │
+ │    ├ render/impeller/vk_wsi.zig           native-Wayland swapchain-extent shim          │
+ │    └ render/impeller/bindings.zig                 Impeller C ABI bindings (@cImport)            │
+ │  render/raster/renderer.zig    Raster     CPU: RGBA8 buffer, coverage-AA, no GPU        │
+ │    ├ render/raster/text.zig      Font (stb impl of text.Measurer)             │
+ │    ├ render/raster/stb.zig              stb_truetype decls (@cImport)                │
  │    └ vendor/stb_truetype.h + stb_impl.c   (impl compiled as C)                 │
  └───────────────────────────────────────────────────────────────────────────────┘
 
@@ -81,7 +117,7 @@ which is in use.
                                           ▼                            │
                     ┌─────────────────────┴─────────────────────┐      │
                     ▼                                            ▼      │
-        backend/impeller.render                     backend/raster.render
+        render/impeller/renderer.render          render/raster/renderer.render
         (Vulkan display list → present) ────────────► (CPU blend → buffer/PPM)
 ```
 
@@ -103,13 +139,13 @@ backend; the backend never names layout or widgets.
 | `widgets.zig` | L5 widgets | Checkbox, slider, single-line text field (caret/selection/clipboard), scroll (clip+wheel+scrollbar). Persistent subtrees whose `update` mutates node fields in place from state+input. | `Widget` `Checkbox` `Slider` `TextField` `Scroll` `theme` | layout, geometry, input, focus, clipboard, text |
 | `immediate.zig` | L6 frontend | Immediate mode: rebuild the tree each frame in a reset arena; widgets return interaction via previous-frame rects. | `Imm` (`begin`/`beginBox`/`endBox`/`label`/`button`/`end`) | layout, paint, draw_list, geometry, input |
 | `retained.zig` | L6 frontend | Retained mode: persistent tree + click `Handler`s + registered `Widget`s; `frame()` resolves state before layout, dispatches, emits. | `Tree` (`button`/`checkbox`/`slider`/`textField`/`scroll`/`frame`), `Handler` | layout, paint, draw_list, geometry, input, focus, clipboard, widgets |
-| `backend/impeller.zig` | swap A | **GPU backend.** Owns the Impeller Vulkan context/swapchain; consumes `DrawList`; provides a `Measurer`. Never imports layout. | `Renderer` (`init`/`render`/`resize`/`measurer`/`deinit`) | impeller, draw_list, geometry, text, impeller_text, vk_wsi |
-| `backend/impeller_text.zig` | swap A | Impeller implementation of `text.Measurer` (paragraph build + metrics). | `Typography` | impeller, geometry, text |
-| `backend/vk_wsi.zig` | swap A | Native-Wayland fix: proc-address shim pinning swapchain `minImageExtent` to the window size. | `Shim` `install` `procAddr` | — (vulkan cImport) |
-| `impeller.zig` | swap A | Impeller C ABI bindings + version packing. | `c` `version_packed` | — (impeller.h cImport) |
-| `backend/raster.zig` | swap A | **CPU backend.** Rasterizes the same `DrawList` into an RGBA8 buffer: coverage-AA rounded rects/lines, rect-clip stack, stb glyph blit; PPM dump; pixel readback. | `Raster` (`init`/`render`/`measurer`/`pixel`/`writePpm`) | geometry, draw_list, text, raster_text, stb |
-| `backend/raster_text.zig` | swap A | stb_truetype implementation of `text.Measurer` + glyph access for the raster blitter. | `Font` | geometry, text, stb |
-| `backend/stb.zig` | swap A | stb_truetype declarations (impl compiled as C — see `hui-stb-translate-c`). | `c` | — (cImport) |
+| `render/impeller/renderer.zig` | swap A | **GPU backend.** Owns the Impeller Vulkan context/swapchain; consumes `DrawList`; provides a `Measurer`. Never imports layout. | `Renderer` (`init`/`render`/`resize`/`measurer`/`deinit`) | impeller, draw_list, geometry, text, impeller_text, vk_wsi |
+| `render/impeller/text.zig` | swap A | Impeller implementation of `text.Measurer` (paragraph build + metrics). | `Typography` | impeller, geometry, text |
+| `render/impeller/vk_wsi.zig` | swap A | Native-Wayland fix: proc-address shim pinning swapchain `minImageExtent` to the window size. | `Shim` `install` `procAddr` | — (vulkan cImport) |
+| `render/impeller/bindings.zig` | swap A | Impeller C ABI bindings + version packing. | `c` `version_packed` | — (impeller.h cImport) |
+| `render/raster/renderer.zig` | swap A | **CPU backend.** Rasterizes the same `DrawList` into an RGBA8 buffer: coverage-AA rounded rects/lines, rect-clip stack, stb glyph blit; PPM dump; pixel readback. | `Raster` (`init`/`render`/`measurer`/`pixel`/`writePpm`) | geometry, draw_list, text, raster_text, stb |
+| `render/raster/text.zig` | swap A | stb_truetype implementation of `text.Measurer` + glyph access for the raster blitter. | `Font` | geometry, text, stb |
+| `render/raster/stb.zig` | swap A | stb_truetype declarations (impl compiled as C — see `hui-stb-translate-c`). | `c` | — (cImport) |
 | `embedder.zig` | swap B | Windowing **contract** (duck-typed) + comptime `Default` per target; `Extent` (integer window pixels) + input `Event` union. | `Config` `Extent` `Event` `Default` `assertEmbedder` | embedder/sdl3 |
 | `embedder/sdl3.zig` | swap B | SDL3 adapter: window, `Event` mapping, Vulkan surface, HiDPI pointer scaling, SDL clipboard. | `Sdl3` (`init`/`pollEvents`/`vkGetInstanceProcAddr`/`createVulkanSurface`/`drawableSize`/`clipboard`) | embedder, clipboard |
 | `root.zig` | entry | The `HUI` package module; re-exports every submodule. | (all above) | all |

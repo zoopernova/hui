@@ -12,8 +12,8 @@
 //! embedder/backend boundary.
 
 const std = @import("std");
-const contract = @import("../embedder.zig");
-const clip = @import("../clipboard.zig");
+const contract = @import("embedder.zig");
+const clip = @import("../input/clipboard.zig");
 const Config = contract.Config;
 const Event = contract.Event;
 const Extent = contract.Extent;
@@ -40,7 +40,7 @@ pub const Sdl3 = struct {
         _ = gpa; // SDL manages its own allocations; kept for contract uniformity.
         // Native Wayland. Impeller's swapchain can't size itself here (Wayland reports
         // an undefined surface extent); the backend's WSI shim patches that from the
-        // window size. See src/backend/vk_wsi.zig.
+        // window size. See src/render/impeller/vk_wsi.zig.
         // ponytail: library code returns errors, it doesn't log to global stderr —
         // the caller reports. `lastError()` exposes SDL's message for those who want it.
         if (!c.SDL_Init(c.SDL_INIT_VIDEO)) return Error.SdlInit;
