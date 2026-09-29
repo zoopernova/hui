@@ -1,0 +1,16 @@
+zig-cache/
+.zig-cache/
+zig-out/
+build/
+build-*/
+docgen_tmp/
+.zbscanhelper.zig
+
+# demo artifact
+settings_raster.ppm
+
+# IDE
+.idea/
+
+# fetched dependency cache (refetched from build.zig.zon pin)
+zig-pkg/
